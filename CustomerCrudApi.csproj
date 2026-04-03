@@ -8,4 +8,10 @@
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="CustomerCrudApi.Tests\**\*.cs" />
+    <EmbeddedResource Remove="CustomerCrudApi.Tests\**\*" />
+    <None Remove="CustomerCrudApi.Tests\**\*" />
+  </ItemGroup>
 </Project>
