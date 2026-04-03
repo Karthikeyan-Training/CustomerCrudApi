@@ -70,3 +70,22 @@ dotnet run
 - Repository starts with 10 seeded customers.
 - Data is stored in memory only.
 - Restarting the app resets data back to the seeded set.
+
+## CI Pipeline (GitHub Actions)
+
+This project includes a CI pipeline powered by **GitHub Actions**.
+
+- Tests run automatically on every pull request targeting `main` and on every push to `main`.
+- The workflow builds the solution and runs all xUnit tests.
+- **Merging is blocked if any test fails** (requires branch protection to be enabled by a repo admin).
+
+### Enabling Branch Protection
+
+To enforce the "tests must pass before merge" rule, a repository admin must:
+
+1. Go to **Settings → Branches** in the GitHub repository.
+2. Add a branch protection rule for `main`.
+3. Enable **"Require status checks to pass before merging"**.
+4. Select the **`build-and-test`** status check.
+
+Once enabled, GitHub will prevent merging any PR where the `build-and-test` check has not passed.
