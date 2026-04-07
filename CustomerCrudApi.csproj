@@ -13,5 +13,6 @@
     <Compile Remove="CustomerCrudApi.Tests\**\*.cs" />
     <EmbeddedResource Remove="CustomerCrudApi.Tests\**\*" />
     <None Remove="CustomerCrudApi.Tests\**\*" />
+    <Content Remove="CustomerCrudApi.Tests\**\*" />
   </ItemGroup>
 </Project>
