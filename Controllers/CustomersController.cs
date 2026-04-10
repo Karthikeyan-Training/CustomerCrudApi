@@ -9,27 +9,36 @@ namespace CustomerCrudApi.Controllers;
 public class CustomersController : ControllerBase
 {
     private readonly ICustomerService _customerService;
+    private readonly ILogger<CustomersController> _logger;
 
-    public CustomersController(ICustomerService customerService)
+    public CustomersController(ICustomerService customerService, ILogger<CustomersController> logger)
     {
         _customerService = customerService;
+        _logger = logger;
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyCollection<Customer>), StatusCodes.Status200OK)]
-    public ActionResult<IReadOnlyCollection<Customer>> GetAll()
+    [ProducesResponseType(typeof(PagedResult<Customer>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<Customer>>> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
-        return Ok(_customerService.GetAll());
+        if (pageNumber <= 0 || pageSize <= 0)
+        {
+            return BadRequest(new { message = "pageNumber and pageSize must be positive integers." });
+        }
+
+        var result = await _customerService.GetAllAsync(pageNumber, pageSize, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(Customer), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<Customer> GetById(Guid id)
+    public async Task<ActionResult<Customer>> GetById(Guid id, CancellationToken cancellationToken = default)
     {
-        var customer = _customerService.GetById(id);
+        var customer = await _customerService.GetByIdAsync(id, cancellationToken);
         if (customer is null)
         {
+            _logger.LogWarning("Customer {CustomerId} was not found.", id);
             return NotFound();
         }
 
@@ -40,9 +49,9 @@ public class CustomersController : ControllerBase
     [ProducesResponseType(typeof(Customer), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public ActionResult<Customer> Create([FromBody] CreateCustomerRequest request)
+    public async Task<ActionResult<Customer>> Create([FromBody] CreateCustomerRequest request, CancellationToken cancellationToken = default)
     {
-        var result = _customerService.Create(request);
+        var result = await _customerService.CreateAsync(request, cancellationToken);
 
         if (result.IsConflict)
         {
@@ -57,9 +66,9 @@ public class CustomersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public ActionResult<Customer> Update(Guid id, [FromBody] UpdateCustomerRequest request)
+    public async Task<ActionResult<Customer>> Update(Guid id, [FromBody] UpdateCustomerRequest request, CancellationToken cancellationToken = default)
     {
-        var result = _customerService.Update(id, request);
+        var result = await _customerService.UpdateAsync(id, request, cancellationToken);
 
         if (result.IsNotFound)
         {
@@ -77,9 +86,9 @@ public class CustomersController : ControllerBase
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken = default)
     {
-        var deleted = _customerService.Delete(id);
+        var deleted = await _customerService.DeleteAsync(id, cancellationToken);
         if (!deleted)
         {
             return NotFound();

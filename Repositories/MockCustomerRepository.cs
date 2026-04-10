@@ -12,47 +12,58 @@ public class MockCustomerRepository : ICustomerRepository
         _customers = new ConcurrentDictionary<Guid, Customer>(SeedCustomers().ToDictionary(c => c.Id));
     }
 
-    public IReadOnlyCollection<Customer> GetAll()
+    public Task<IReadOnlyCollection<Customer>> GetAllAsync(int skip, int take, CancellationToken cancellationToken = default)
     {
-        return _customers.Values
+        IReadOnlyCollection<Customer> customers = _customers.Values
             .OrderBy(c => c.FirstName)
             .ThenBy(c => c.LastName)
+            .Skip(skip)
+            .Take(take)
             .ToList();
+
+        return Task.FromResult(customers);
     }
 
-    public Customer? GetById(Guid id)
+    public Task<int> CountAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_customers.Count);
+    }
+
+    public Task<Customer?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         _customers.TryGetValue(id, out var customer);
-        return customer;
+        return Task.FromResult(customer);
     }
 
-    public Customer Add(Customer customer)
+    public Task<Customer> AddAsync(Customer customer, CancellationToken cancellationToken = default)
     {
         _customers[customer.Id] = customer;
-        return customer;
+        return Task.FromResult(customer);
     }
 
-    public Customer? Update(Customer customer)
+    public Task<Customer?> UpdateAsync(Customer customer, CancellationToken cancellationToken = default)
     {
         if (!_customers.ContainsKey(customer.Id))
         {
-            return null;
+            return Task.FromResult<Customer?>(null);
         }
 
         _customers[customer.Id] = customer;
-        return customer;
+        return Task.FromResult<Customer?>(customer);
     }
 
-    public bool Delete(Guid id)
+    public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return _customers.TryRemove(id, out _);
+        return Task.FromResult(_customers.TryRemove(id, out _));
     }
 
-    public bool EmailExists(string email, Guid? excludeId = null)
+    public Task<bool> EmailExistsAsync(string email, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {
-        return _customers.Values.Any(c =>
+        var exists = _customers.Values.Any(c =>
             (!excludeId.HasValue || c.Id != excludeId.Value) &&
             string.Equals(c.Email, email, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(exists);
     }
 
     private static List<Customer> SeedCustomers()

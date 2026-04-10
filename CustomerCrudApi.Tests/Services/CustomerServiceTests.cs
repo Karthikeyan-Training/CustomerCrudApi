@@ -1,69 +1,70 @@
 using CustomerCrudApi.Models;
 using CustomerCrudApi.Repositories;
 using CustomerCrudApi.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CustomerCrudApi.Tests.Services;
 
 public class CustomerServiceTests
 {
     [Fact]
-    public void GetAll_DelegatesToRepository()
+    public async Task GetAll_DelegatesToRepository()
     {
         var repo = new TestCustomerRepository();
-        repo.Add(new Customer { Id = Guid.NewGuid(), FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo);
+        await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "A", LastName = "B", Email = "a@b.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
 
-        var result = service.GetAll();
+        var result = await service.GetAllAsync(1, 10);
 
-        Assert.Single(result);
+        Assert.Single(result.Items);
     }
 
     [Fact]
-    public void GetById_WhenPresent_ReturnsCustomer()
+    public async Task GetById_WhenPresent_ReturnsCustomer()
     {
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
-        repo.Add(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo);
+        await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
 
-        var customer = service.GetById(id);
+        var customer = await service.GetByIdAsync(id);
 
         Assert.NotNull(customer);
         Assert.Equal(id, customer!.Id);
     }
 
     [Fact]
-    public void Create_WhenDateOfBirthIsFuture_ReturnsConflict()
+    public async Task Create_WhenDateOfBirthIsFuture_ReturnsConflict()
     {
         var repo = new TestCustomerRepository();
-        var service = new CustomerService(repo);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
         var request = BuildCreateRequest();
         request.DateOfBirth = DateTime.UtcNow.Date.AddDays(1);
 
-        var result = service.Create(request);
+        var result = await service.CreateAsync(request);
 
         Assert.True(result.IsConflict);
         Assert.Equal("DateOfBirth must be in the past.", result.ErrorMessage);
     }
 
     [Fact]
-    public void Create_WhenEmailExists_ReturnsConflict()
+    public async Task Create_WhenEmailExists_ReturnsConflict()
     {
         var repo = new TestCustomerRepository();
-        repo.Add(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "john@example.com" });
-        var service = new CustomerService(repo);
+        await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "john@example.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
 
-        var result = service.Create(BuildCreateRequest());
+        var result = await service.CreateAsync(BuildCreateRequest());
 
         Assert.True(result.IsConflict);
         Assert.Equal("A customer with the same email already exists.", result.ErrorMessage);
     }
 
     [Fact]
-    public void Create_WhenValid_AddsCustomerWithTrimmedValues()
+    public async Task Create_WhenValid_AddsCustomerWithTrimmedValues()
     {
         var repo = new TestCustomerRepository();
-        var service = new CustomerService(repo);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
         var request = new CreateCustomerRequest
         {
             FirstName = "  John  ",
@@ -74,7 +75,7 @@ public class CustomerServiceTests
             Address = "  Some Street  "
         };
 
-        var result = service.Create(request);
+        var result = await service.CreateAsync(request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Customer);
@@ -88,70 +89,70 @@ public class CustomerServiceTests
     }
 
     [Fact]
-    public void Update_WhenCustomerMissing_ReturnsNotFound()
+    public async Task Update_WhenCustomerMissing_ReturnsNotFound()
     {
         var repo = new TestCustomerRepository();
-        var service = new CustomerService(repo);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
 
-        var result = service.Update(Guid.NewGuid(), BuildUpdateRequest());
+        var result = await service.UpdateAsync(Guid.NewGuid(), BuildUpdateRequest());
 
         Assert.True(result.IsNotFound);
         Assert.Equal("Customer was not found.", result.ErrorMessage);
     }
 
     [Fact]
-    public void Update_WhenDateOfBirthIsFuture_ReturnsConflict()
+    public async Task Update_WhenDateOfBirthIsFuture_ReturnsConflict()
     {
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
-        repo.Add(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo);
+        await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
         var request = BuildUpdateRequest();
         request.DateOfBirth = DateTime.UtcNow.Date.AddDays(1);
 
-        var result = service.Update(id, request);
+        var result = await service.UpdateAsync(id, request);
 
         Assert.True(result.IsConflict);
         Assert.Equal("DateOfBirth must be in the past.", result.ErrorMessage);
     }
 
     [Fact]
-    public void Update_WhenDuplicateEmailExists_ReturnsConflict()
+    public async Task Update_WhenDuplicateEmailExists_ReturnsConflict()
     {
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
-        repo.Add(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        repo.Add(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "duplicate@example.com" });
-        var service = new CustomerService(repo);
+        await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
+        await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "duplicate@example.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
         var request = BuildUpdateRequest();
         request.Email = "duplicate@example.com";
 
-        var result = service.Update(id, request);
+        var result = await service.UpdateAsync(id, request);
 
         Assert.True(result.IsConflict);
         Assert.Equal("A customer with the same email already exists.", result.ErrorMessage);
     }
 
     [Fact]
-    public void Update_WhenRepositoryUpdateReturnsNull_ReturnsNotFound()
+    public async Task Update_WhenRepositoryUpdateReturnsNull_ReturnsNotFound()
     {
         var repo = new TestCustomerRepository { ReturnNullOnUpdate = true };
         var id = Guid.NewGuid();
-        repo.Add(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo);
+        await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
 
-        var result = service.Update(id, BuildUpdateRequest());
+        var result = await service.UpdateAsync(id, BuildUpdateRequest());
 
         Assert.True(result.IsNotFound);
         Assert.Equal("Customer was not found.", result.ErrorMessage);
     }
 
     [Fact]
-    public void Update_WhenValid_UpdatesCustomerAndReturnsSuccess()
+    public async Task Update_WhenValid_UpdatesCustomerAndReturnsSuccess()
     {
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
-        repo.Add(new Customer
+        await repo.AddAsync(new Customer
         {
             Id = id,
             FirstName = "Old",
@@ -162,7 +163,7 @@ public class CustomerServiceTests
             Address = "Old Address"
         });
 
-        var service = new CustomerService(repo);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
         var request = new UpdateCustomerRequest
         {
             FirstName = "  New  ",
@@ -173,7 +174,7 @@ public class CustomerServiceTests
             Address = "  New Address  "
         };
 
-        var result = service.Update(id, request);
+        var result = await service.UpdateAsync(id, request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Customer);
@@ -186,14 +187,14 @@ public class CustomerServiceTests
     }
 
     [Fact]
-    public void Delete_DelegatesToRepository()
+    public async Task Delete_DelegatesToRepository()
     {
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
-        repo.Add(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo);
+        await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
 
-        var deleted = service.Delete(id);
+        var deleted = await service.DeleteAsync(id);
 
         Assert.True(deleted);
         Assert.Equal(0, repo.Count);
@@ -227,39 +228,55 @@ public class CustomerServiceTests
 
         public int Count => _store.Count;
 
-        public IReadOnlyCollection<Customer> GetAll() => _store.Values.ToList();
-
-        public Customer? GetById(Guid id) => _store.TryGetValue(id, out var customer) ? customer : null;
-
-        public Customer Add(Customer customer)
+        public Task<IReadOnlyCollection<Customer>> GetAllAsync(int skip, int take, CancellationToken cancellationToken = default)
         {
-            _store[customer.Id] = customer;
-            return customer;
+            IReadOnlyCollection<Customer> customers = _store.Values
+                .OrderBy(c => c.FirstName)
+                .ThenBy(c => c.LastName)
+                .Skip(skip)
+                .Take(take)
+                .ToList();
+
+            return Task.FromResult(customers);
         }
 
-        public Customer? Update(Customer customer)
+        public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(_store.Count);
+
+        public Task<Customer?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult(_store.TryGetValue(id, out var customer) ? customer : null);
+
+        public Task<Customer> AddAsync(Customer customer, CancellationToken cancellationToken = default)
+        {
+            _store[customer.Id] = customer;
+            return Task.FromResult(customer);
+        }
+
+        public Task<Customer?> UpdateAsync(Customer customer, CancellationToken cancellationToken = default)
         {
             if (ReturnNullOnUpdate)
             {
-                return null;
+                return Task.FromResult<Customer?>(null);
             }
 
             if (!_store.ContainsKey(customer.Id))
             {
-                return null;
+                return Task.FromResult<Customer?>(null);
             }
 
             _store[customer.Id] = customer;
-            return customer;
+            return Task.FromResult<Customer?>(customer);
         }
 
-        public bool Delete(Guid id) => _store.Remove(id);
+        public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult(_store.Remove(id));
 
-        public bool EmailExists(string email, Guid? excludeId = null)
+        public Task<bool> EmailExistsAsync(string email, Guid? excludeId = null, CancellationToken cancellationToken = default)
         {
-            return _store.Values.Any(c =>
+            var exists = _store.Values.Any(c =>
                 (!excludeId.HasValue || c.Id != excludeId.Value) &&
                 string.Equals(c.Email, email, StringComparison.OrdinalIgnoreCase));
+
+            return Task.FromResult(exists);
         }
     }
 }

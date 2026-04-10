@@ -4,10 +4,11 @@ namespace CustomerCrudApi.Repositories;
 
 public interface ICustomerRepository
 {
-    IReadOnlyCollection<Customer> GetAll();
-    Customer? GetById(Guid id);
-    Customer Add(Customer customer);
-    Customer? Update(Customer customer);
-    bool Delete(Guid id);
-    bool EmailExists(string email, Guid? excludeId = null);
+    Task<IReadOnlyCollection<Customer>> GetAllAsync(int skip, int take, CancellationToken cancellationToken = default);
+    Task<int> CountAsync(CancellationToken cancellationToken = default);
+    Task<Customer?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Customer> AddAsync(Customer customer, CancellationToken cancellationToken = default);
+    Task<Customer?> UpdateAsync(Customer customer, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<bool> EmailExistsAsync(string email, Guid? excludeId = null, CancellationToken cancellationToken = default);
 }
