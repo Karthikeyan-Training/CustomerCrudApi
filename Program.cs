@@ -1,9 +1,21 @@
 using CustomerCrudApi.Data;
+using CustomerCrudApi.Logging;
 using CustomerCrudApi.Repositories;
 using CustomerCrudApi.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Data Source=customers.db";
+
+var connectionString = ResolveConnectionString(rawConnectionString, builder.Environment.ContentRootPath);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.AddProvider(new SqliteLoggerProvider(connectionString));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -11,14 +23,6 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<CustomerDbContext>(options =>
 {
-    var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? "Data Source=customers.db";
-
-    // Resolve any relative Data Source path against the content root so the DB file
-    // is always created next to the project, regardless of the process working directory
-    // (bin/Debug/netX.Y/, dotnet run from a parent directory, IDE launch, etc.).
-    var connectionString = ResolveConnectionString(rawConnectionString, builder.Environment.ContentRootPath);
-
     options.UseSqlite(connectionString);
 });
 
