@@ -39,7 +39,21 @@ public class CustomerOperationResultTests
         Assert.True(result.IsConflict);
         Assert.False(result.IsSuccess);
         Assert.False(result.IsNotFound);
+        Assert.False(result.IsValidationFailure);
         Assert.Equal("Conflict", result.ErrorMessage);
+        Assert.Null(result.Customer);
+    }
+
+    [Fact]
+    public void ValidationFailure_CreatesValidationFailureResult()
+    {
+        var result = CustomerOperationResult.ValidationFailure("Invalid input");
+
+        Assert.True(result.IsValidationFailure);
+        Assert.False(result.IsSuccess);
+        Assert.False(result.IsNotFound);
+        Assert.False(result.IsConflict);
+        Assert.Equal("Invalid input", result.ErrorMessage);
         Assert.Null(result.Customer);
     }
 }
