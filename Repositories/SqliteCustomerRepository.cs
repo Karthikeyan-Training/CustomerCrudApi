@@ -51,14 +51,7 @@ public class SqliteCustomerRepository : ICustomerRepository
             return null;
         }
 
-        existing.FirstName = customer.FirstName;
-        existing.LastName = customer.LastName;
-        existing.Email = customer.Email;
-        existing.Phone = customer.Phone;
-        existing.DateOfBirth = customer.DateOfBirth;
-        existing.Address = customer.Address;
-        existing.UpdatedAtUtc = customer.UpdatedAtUtc;
-
+        _dbContext.Entry(existing).CurrentValues.SetValues(customer);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return existing;
@@ -79,11 +72,11 @@ public class SqliteCustomerRepository : ICustomerRepository
 
     public Task<bool> EmailExistsAsync(string email, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = email.Trim();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
 
         return _dbContext.Customers.AnyAsync(c =>
             (!excludeId.HasValue || c.Id != excludeId.Value) &&
-            c.Email.ToLower() == normalizedEmail.ToLower(),
+            c.Email == normalizedEmail,
             cancellationToken);
     }
 }

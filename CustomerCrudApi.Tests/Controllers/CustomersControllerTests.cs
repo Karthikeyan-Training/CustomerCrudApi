@@ -35,6 +35,26 @@ public class CustomersControllerTests
     }
 
     [Fact]
+    public async Task GetAll_WhenPageNumberIsZero_ReturnsBadRequest()
+    {
+        var controller = new CustomersController(_serviceMock.Object, NullLogger<CustomersController>.Instance);
+
+        var response = await controller.GetAll(pageNumber: 0, pageSize: 10);
+
+        Assert.IsType<BadRequestObjectResult>(response.Result);
+    }
+
+    [Fact]
+    public async Task GetAll_WhenPageSizeIsNegative_ReturnsBadRequest()
+    {
+        var controller = new CustomersController(_serviceMock.Object, NullLogger<CustomersController>.Instance);
+
+        var response = await controller.GetAll(pageNumber: 1, pageSize: -1);
+
+        Assert.IsType<BadRequestObjectResult>(response.Result);
+    }
+
+    [Fact]
     public async Task GetById_WhenCustomerExists_ReturnsOk()
     {
         var id = Guid.NewGuid();
@@ -74,6 +94,21 @@ public class CustomersControllerTests
 
         var conflict = Assert.IsType<ConflictObjectResult>(response.Result);
         Assert.Equal(409, conflict.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_WhenValidationFailure_ReturnsBadRequest()
+    {
+        var request = BuildCreateRequest();
+        _serviceMock
+            .Setup(s => s.CreateAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CustomerOperationResult.ValidationFailure("DateOfBirth must be in the past."));
+        var controller = new CustomersController(_serviceMock.Object, NullLogger<CustomersController>.Instance);
+
+        var response = await controller.Create(request);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(400, badRequest.StatusCode);
     }
 
     [Fact]
@@ -124,6 +159,22 @@ public class CustomersControllerTests
 
         var conflict = Assert.IsType<ConflictObjectResult>(response.Result);
         Assert.Equal(409, conflict.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_WhenValidationFailure_ReturnsBadRequest()
+    {
+        var id = Guid.NewGuid();
+        var request = BuildUpdateRequest();
+        _serviceMock
+            .Setup(s => s.UpdateAsync(id, request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CustomerOperationResult.ValidationFailure("DateOfBirth must be in the past."));
+        var controller = new CustomersController(_serviceMock.Object, NullLogger<CustomersController>.Instance);
+
+        var response = await controller.Update(id, request);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(400, badRequest.StatusCode);
     }
 
     [Fact]

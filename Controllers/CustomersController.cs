@@ -6,6 +6,7 @@ namespace CustomerCrudApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Produces("application/json")]
 public class CustomersController : ControllerBase
 {
     private readonly ICustomerService _customerService;
@@ -23,7 +24,12 @@ public class CustomersController : ControllerBase
     {
         if (pageNumber <= 0 || pageSize <= 0)
         {
-            return BadRequest(new { message = "pageNumber and pageSize must be positive integers." });
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Invalid pagination parameters",
+                Detail = "pageNumber and pageSize must be positive integers."
+            });
         }
 
         var result = await _customerService.GetAllAsync(pageNumber, pageSize, cancellationToken);
@@ -53,9 +59,24 @@ public class CustomersController : ControllerBase
     {
         var result = await _customerService.CreateAsync(request, cancellationToken);
 
+        if (result.IsValidationFailure)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Validation error",
+                Detail = result.ErrorMessage
+            });
+        }
+
         if (result.IsConflict)
         {
-            return Conflict(new { message = result.ErrorMessage });
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Conflict",
+                Detail = result.ErrorMessage
+            });
         }
 
         return CreatedAtAction(nameof(GetById), new { id = result.Customer!.Id }, result.Customer);
@@ -72,12 +93,32 @@ public class CustomersController : ControllerBase
 
         if (result.IsNotFound)
         {
-            return NotFound(new { message = result.ErrorMessage });
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Not found",
+                Detail = result.ErrorMessage
+            });
+        }
+
+        if (result.IsValidationFailure)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Validation error",
+                Detail = result.ErrorMessage
+            });
         }
 
         if (result.IsConflict)
         {
-            return Conflict(new { message = result.ErrorMessage });
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Conflict",
+                Detail = result.ErrorMessage
+            });
         }
 
         return Ok(result.Customer);

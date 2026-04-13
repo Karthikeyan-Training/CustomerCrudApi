@@ -59,9 +59,11 @@ public class MockCustomerRepository : ICustomerRepository
 
     public Task<bool> EmailExistsAsync(string email, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
         var exists = _customers.Values.Any(c =>
             (!excludeId.HasValue || c.Id != excludeId.Value) &&
-            string.Equals(c.Email, email, StringComparison.OrdinalIgnoreCase));
+            string.Equals(c.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase));
 
         return Task.FromResult(exists);
     }

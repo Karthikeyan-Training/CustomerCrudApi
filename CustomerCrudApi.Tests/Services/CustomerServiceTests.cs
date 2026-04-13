@@ -12,7 +12,7 @@ public class CustomerServiceTests
     {
         var repo = new TestCustomerRepository();
         await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
 
         var result = await service.GetAllAsync(1, 10);
 
@@ -25,7 +25,7 @@ public class CustomerServiceTests
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
         await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
 
         var customer = await service.GetByIdAsync(id);
 
@@ -34,16 +34,16 @@ public class CustomerServiceTests
     }
 
     [Fact]
-    public async Task Create_WhenDateOfBirthIsFuture_ReturnsConflict()
+    public async Task Create_WhenDateOfBirthIsFuture_ReturnsValidationFailure()
     {
         var repo = new TestCustomerRepository();
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
         var request = BuildCreateRequest();
         request.DateOfBirth = DateTime.UtcNow.Date.AddDays(1);
 
         var result = await service.CreateAsync(request);
 
-        Assert.True(result.IsConflict);
+        Assert.True(result.IsValidationFailure);
         Assert.Equal("DateOfBirth must be in the past.", result.ErrorMessage);
     }
 
@@ -52,9 +52,24 @@ public class CustomerServiceTests
     {
         var repo = new TestCustomerRepository();
         await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "john@example.com" });
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
 
         var result = await service.CreateAsync(BuildCreateRequest());
+
+        Assert.True(result.IsConflict);
+        Assert.Equal("A customer with the same email already exists.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Create_WhenEmailExistsWithWhitespace_ReturnsConflict()
+    {
+        var repo = new TestCustomerRepository();
+        await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "john@example.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
+        var request = BuildCreateRequest();
+        request.Email = "  JOHN@example.com  ";
+
+        var result = await service.CreateAsync(request);
 
         Assert.True(result.IsConflict);
         Assert.Equal("A customer with the same email already exists.", result.ErrorMessage);
@@ -64,7 +79,7 @@ public class CustomerServiceTests
     public async Task Create_WhenValid_AddsCustomerWithTrimmedValues()
     {
         var repo = new TestCustomerRepository();
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
         var request = new CreateCustomerRequest
         {
             FirstName = "  John  ",
@@ -92,7 +107,7 @@ public class CustomerServiceTests
     public async Task Update_WhenCustomerMissing_ReturnsNotFound()
     {
         var repo = new TestCustomerRepository();
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
 
         var result = await service.UpdateAsync(Guid.NewGuid(), BuildUpdateRequest());
 
@@ -101,18 +116,18 @@ public class CustomerServiceTests
     }
 
     [Fact]
-    public async Task Update_WhenDateOfBirthIsFuture_ReturnsConflict()
+    public async Task Update_WhenDateOfBirthIsFuture_ReturnsValidationFailure()
     {
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
         await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
         var request = BuildUpdateRequest();
         request.DateOfBirth = DateTime.UtcNow.Date.AddDays(1);
 
         var result = await service.UpdateAsync(id, request);
 
-        Assert.True(result.IsConflict);
+        Assert.True(result.IsValidationFailure);
         Assert.Equal("DateOfBirth must be in the past.", result.ErrorMessage);
     }
 
@@ -123,9 +138,26 @@ public class CustomerServiceTests
         var id = Guid.NewGuid();
         await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
         await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "duplicate@example.com" });
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
         var request = BuildUpdateRequest();
         request.Email = "duplicate@example.com";
+
+        var result = await service.UpdateAsync(id, request);
+
+        Assert.True(result.IsConflict);
+        Assert.Equal("A customer with the same email already exists.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Update_WhenDuplicateEmailExistsWithWhitespace_ReturnsConflict()
+    {
+        var repo = new TestCustomerRepository();
+        var id = Guid.NewGuid();
+        await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
+        await repo.AddAsync(new Customer { Id = Guid.NewGuid(), FirstName = "X", LastName = "Y", Email = "duplicate@example.com" });
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
+        var request = BuildUpdateRequest();
+        request.Email = "  DuPlicate@example.com  ";
 
         var result = await service.UpdateAsync(id, request);
 
@@ -139,7 +171,7 @@ public class CustomerServiceTests
         var repo = new TestCustomerRepository { ReturnNullOnUpdate = true };
         var id = Guid.NewGuid();
         await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
 
         var result = await service.UpdateAsync(id, BuildUpdateRequest());
 
@@ -163,7 +195,7 @@ public class CustomerServiceTests
             Address = "Old Address"
         });
 
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
         var request = new UpdateCustomerRequest
         {
             FirstName = "  New  ",
@@ -192,7 +224,7 @@ public class CustomerServiceTests
         var repo = new TestCustomerRepository();
         var id = Guid.NewGuid();
         await repo.AddAsync(new Customer { Id = id, FirstName = "A", LastName = "B", Email = "a@b.com" });
-        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance);
+        var service = new CustomerService(repo, NullLogger<CustomerService>.Instance, TimeProvider.System);
 
         var deleted = await service.DeleteAsync(id);
 
